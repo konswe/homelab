@@ -20,3 +20,16 @@ Deployment of a centralized Security Information and Event Management (SIEM) sys
 Commands used to set up the official Elastic repository and install the core database:
 
 **(WIP)**
+
+
+## Troubleshooting & Lessons Learned
+
+* **Issue:** Encountered network timeouts and authorization errors during the initial `docker compose up -d` execution. The large size of the ELK stack images caused the connection to the Elastic Docker registry to drop, interrupting the pull process for Logstash and Kibana.
+    * **Exact Errors Logged:**
+        ```text
+        Error response from daemon: failed to copy: httpReadSeeker: failed open: failed to do request: Get "[...]": dial tcp 34.56.16.77:443: i/o timeout
+        ```
+        ```text
+        Error response from daemon: failed to resolve reference "docker.elastic.co/kibana/kibana:9.4.3": failed to authorize: failed to fetch anonymous token: Get "[...]": dial tcp 34.56.16.77:443: i/o timeout
+        ```
+* **Fix:** Simply re-ran the `docker compose up -d` command. Docker natively caches partially downloaded image layers, so consecutive executions resumed the download process from where it left off until all images were fully pulled and containers successfully started (status `[+] up 19/19`).
