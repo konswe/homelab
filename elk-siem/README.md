@@ -5,8 +5,8 @@ Deployment of a centralized Security Information and Event Management (SIEM) sys
 
 ## Prerequisites & Environment
 *   **OS:** Ubuntu Server 26.04 LTS
-*   **Resources:** 8GB RAM allocated to Elasticsearch JVM Heap (Host total: 64GB RAM)
-*   **Core Components:** Elasticsearch (v8.x), Logstash (v8.x), Kibana (v8.x)
+*   **Resources:** 1GB RAM allocated to Elasticsearch JVM Heap (Host total: 64GB RAM)
+*   **Core Components:** Elasticsearch (v9.4.3), Logstash (v9.4.3), Kibana (v9.4.3)
 
 ## Architecture
 *   **Elasticsearch:** Core database, search and analytics engine (Port 9200).
@@ -28,21 +28,24 @@ sudo apt-get install ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
-
+```
+```
 echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
+```
+```
 sudo apt-get update
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
 
-
+```
 mkdir -p ~/homelab/elk-siem/logstash/pipeline
 cd ~/homelab/elk-siem
 nano docker-compose.yml
-
 ```
+
 
 ```
 services:
@@ -102,10 +105,10 @@ volumes:
   es_data:
     driver: local
 ```
-
 ```
 nano logstash/pipeline/logstash.conf
-
+```
+```
 input {
   beats {
     port => 5044
@@ -122,6 +125,7 @@ output {
   }
 }
 ```
+
 Check Troubleshooting & Lessons Learned section
 ```
 sudo docker compose up -d
@@ -132,61 +136,42 @@ wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearm
 echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/9.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-9.x.list
 sudo apt-get update && sudo apt-get install filebeat
 ```
-
+```
 sudo nano /etc/filebeat/filebeat.yml
+```
 ```
 filebeat.inputs:
   enabled: false -> true
-
+```
 Comment this section
+```
 #output.elasticsearch:
-
+```
 uncomment this section
+```
 output.logstash:
   # The Logstash hosts
   hosts: ["localhost:5044"]
 ```
 
-
+```
 sudo filebeat modules enable system
-
+```
 The name of this file will be different if you dont enable the filebeat.
-
+```
 sudo nano /etc/filebeat/modules.d/system.yml
-
 ```
-
-# Module: system
-# Docs: https://www.elastic.co/guide/en/beats/filebeat/9.4/filebeat-module-system.html
-
-- module: system
-  # Syslog
+```
   syslog:
-    enabled: true
+    enabled: false -> true
 
-    # Set custom paths for the log files. If left empty,
-    # Filebeat will choose the paths depending on your OS.
-    #var.paths:
-
-    # Use journald to collect system logs
-    #var.use_journald: false
-
-  # Authorization logs
   auth:
-    enabled: true
-
-    # Set custom paths for the log files. If left empty,
-    # Filebeat will choose the paths depending on your OS.
-    #var.paths:
-
-    # Use journald to collect auth logs
-    #var.use_journald: false
-
+    enabled: false -> true
 ```
-
+```
 sudo systemctl enable filebeat
 sudo systemctl start filebeat
-
+```
 <img width="1901" height="350" alt="image" src="https://github.com/user-attachments/assets/74c32ba8-bd74-463d-a7a1-d477e3c99afd" />
 
 
