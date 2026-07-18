@@ -21,6 +21,174 @@ Commands used to set up the official Elastic repository and install the core dat
 
 **(WIP)**
 
+```
+sudo apt update && sudo apt upgrade -y
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+
+mkdir -p ~/homelab/elk-siem/logstash/pipeline
+cd ~/homelab/elk-siem
+nano docker-compose.yml
+
+```
+
+```
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.3
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.4.3
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.4.3
+    container_name: logstash
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+    ports:
+      - "5044:5044"
+    environment:
+      - xpack.monitoring.enabled=false
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  es_data:
+    driver: local
+```
+
+```
+nano logstash/pipeline/logstash.conf
+
+input {
+  beats {
+    port => 5044
+  }
+}
+
+filter {
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "logstash-%{+YYYY.MM.dd}"
+  }
+}
+```
+Check Troubleshooting & Lessons Learned section
+```
+sudo docker compose up -d
+```
+
+```
+wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/9.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-9.x.list
+sudo apt-get update && sudo apt-get install filebeat
+```
+
+sudo nano /etc/filebeat/filebeat.yml
+```
+filebeat.inputs:
+  enabled: false -> true
+
+Comment this section
+#output.elasticsearch:
+
+uncomment this section
+output.logstash:
+  # The Logstash hosts
+  hosts: ["localhost:5044"]
+```
+
+
+sudo filebeat modules enable system
+
+The name of this file will be different if you dont enable the filebeat.
+
+sudo nano /etc/filebeat/modules.d/system.yml
+
+```
+
+# Module: system
+# Docs: https://www.elastic.co/guide/en/beats/filebeat/9.4/filebeat-module-system.html
+
+- module: system
+  # Syslog
+  syslog:
+    enabled: true
+
+    # Set custom paths for the log files. If left empty,
+    # Filebeat will choose the paths depending on your OS.
+    #var.paths:
+
+    # Use journald to collect system logs
+    #var.use_journald: false
+
+  # Authorization logs
+  auth:
+    enabled: true
+
+    # Set custom paths for the log files. If left empty,
+    # Filebeat will choose the paths depending on your OS.
+    #var.paths:
+
+    # Use journald to collect auth logs
+    #var.use_journald: false
+
+```
+
+sudo systemctl enable filebeat
+sudo systemctl start filebeat
+
+<img width="1901" height="350" alt="image" src="https://github.com/user-attachments/assets/74c32ba8-bd74-463d-a7a1-d477e3c99afd" />
+
 
 ## Troubleshooting & Lessons Learned
 
